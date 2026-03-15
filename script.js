@@ -4,6 +4,8 @@ let activeSection = 'home';
 let activeChat = null;
 let allUsers = [];
 let onlineUsers = [];
+let authToken = null;
+let socket = null;
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', function() {
@@ -35,67 +37,90 @@ function initializeApp() {
         }
     });
     
-    // Load sample users
-    loadSampleUsers();
+    // Check for existing session
+    checkExistingSession();
 }
 
-// Load Sample Users
-function loadSampleUsers() {
-    const sampleUsers = [
-        {
-            id: 1,
-            name: 'Alice Johnson',
-            email: 'alice@example.com',
-            phone: '+1234567890',
-            avatar: 'https://picsum.photos/seed/alice/40/40',
-            status: 'online',
-            joined: 'January 2024',
-            location: 'New York, NY'
-        },
-        {
-            id: 2,
-            name: 'Bob Smith',
-            email: 'bob@example.com',
-            phone: '+0987654321',
-            avatar: 'https://picsum.photos/seed/bob/40/40',
-            status: 'online',
-            joined: 'February 2024',
-            location: 'Los Angeles, CA'
-        },
-        {
-            id: 3,
-            name: 'Carol Williams',
-            email: 'carol@example.com',
-            phone: '+1122334455',
-            avatar: 'https://picsum.photos/seed/carol/40/40',
-            status: 'offline',
-            joined: 'March 2024',
-            location: 'Chicago, IL'
-        },
-        {
-            id: 4,
-            name: 'David Brown',
-            email: 'david@example.com',
-            phone: '+5544332211',
-            avatar: 'https://picsum.photos/seed/david/40/40',
-            status: 'online',
-            joined: 'January 2024',
-            location: 'Houston, TX'
-        },
-        {
-            id: 5,
-            name: 'Emma Davis',
-            email: 'emma@example.com',
-            phone: '+9988776655',
-            avatar: 'https://picsum.photos/seed/emma/40/40',
-            status: 'offline',
-            joined: 'April 2024',
-            location: 'Phoenix, AZ'
-        }
-    ];
+// Check for existing session
+function checkExistingSession() {
+    const token = localStorage.getItem('authToken');
+    const user = localStorage.getItem('currentUser');
     
-    allUsers = sampleUsers;
-    onlineUsers = sampleUsers.filter(user => user.status === 'online');
+    if (token && user) {
+        authToken = token;
+        currentUser = JSON.parse(user);
+        document.getElementById('userName').textContent = currentUser.username;
+        showPage('chatApp');
+        initializeSocket();
+        loadRealUsers();
+    }
+}
+
+// Initialize Socket Connection
+function initializeSocket() {
+    if (!authToken) return;
+    
+    socket = io('http://localhost:3000');
+    
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        socket.emit('join', currentUser.id);
+    });
+    
+    socket.on('newMessage', (message) => {
+        if (activeChat && (message.sender._id === activeChat.id || message.receiver._id === activeChat.id)) {
+            addMessageToChat(message.content, message.sender._id === currentUser.id ? 'sent' : 'received', message.sender.avatar);
+        }
+    });
+    
+    socket.on('userStatusUpdate', (data) => {
+        updateUserStatus(data.userId, data.status);
+    });
+    
+    socket.on('userTyping', (data) => {
+        if (activeChat && data.userId === activeChat.id) {
+            showTypingIndicator(data.isTyping);
+        }
+    });
+}
+
+// Load Real Users from Server
+async function loadRealUsers() {
+    try {
+        const response = await fetch('/api/users', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            allUsers = users.map(user => ({
+                id: user._id,
+                name: user.username,
+                email: user.email,
+                phone: user.phone || 'Not provided',
+                avatar: user.avatar,
+                status: user.status,
+                joined: new Date(user.joined).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                location: user.location || 'Not provided'
+            }));
+            
+            onlineUsers = allUsers.filter(user => user.status === 'online');
+            renderUsersList();
+            updateUserCount();
+        }
+    } catch (error) {
+        console.error('Failed to load users:', error);
+        showNotification('Failed to load users. Using demo mode.', 'warning');
+        loadDemoUsers();
+    }
+}
+
+// Demo Users Fallback
+function loadDemoUsers() {
+    allUsers = [];
+    onlineUsers = [];
     renderUsersList();
     updateUserCount();
 }
@@ -106,12 +131,16 @@ function renderUsersList(filteredUsers = null) {
     const usersToRender = filteredUsers || allUsers;
     
     if (usersToRender.length === 0) {
-        usersList.innerHTML = '<div class="loading-users"><i class="fas fa-search"></i> No users found</div>';
+        if (allUsers.length === 0) {
+            usersList.innerHTML = '<div class="loading-users"><i class="fas fa-users"></i> No other users registered yet. Be the first to invite friends!</div>';
+        } else {
+            usersList.innerHTML = '<div class="loading-users"><i class="fas fa-search"></i> No users found</div>';
+        }
         return;
     }
     
     usersList.innerHTML = usersToRender.map(user => `
-        <div class="user-item" onclick="selectUser(${user.id})">
+        <div class="user-item" onclick="selectUser('${user.id}')">
             <img src="${user.avatar}" alt="${user.name}" class="avatar">
             <div class="user-info">
                 <h4>${user.name}</h4>
@@ -125,7 +154,8 @@ function renderUsersList(filteredUsers = null) {
 // Update User Count
 function updateUserCount() {
     const onlineCount = onlineUsers.length;
-    document.getElementById('userCount').textContent = `${onlineCount} online`;
+    const totalCount = allUsers.length;
+    document.getElementById('userCount').textContent = `${onlineCount} online • ${totalCount} total`;
 }
 
 // Handle User Search
@@ -155,14 +185,37 @@ function selectUser(userId) {
     document.getElementById('noChatSelected').style.display = 'none';
     document.getElementById('activeChat').style.display = 'flex';
     
-    // Clear previous messages
-    document.getElementById('chatMessages').innerHTML = '';
-    
-    // Add welcome message
-    addMessageToChat(`Hi ${user.name}! 👋 This is the beginning of your conversation.`, 'received', user.avatar);
+    // Load chat history
+    loadChatHistory(userId);
     
     // Focus message input
     document.getElementById('messageInput').focus();
+}
+
+// Load Chat History
+async function loadChatHistory(userId) {
+    try {
+        const response = await fetch(`/api/messages/${currentUser.id}/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const messages = await response.json();
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            
+            messages.forEach(message => {
+                const isSent = message.sender._id === currentUser.id;
+                addMessageToChat(message.content, isSent ? 'sent' : 'received', message.sender.avatar);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load chat history:', error);
+        // Add welcome message
+        addMessageToChat(`Hi ${activeChat.name}! 👋 This is the beginning of your conversation.`, 'received', activeChat.avatar);
+    }
 }
 
 // View Contact Details
@@ -214,6 +267,28 @@ function startVideoCall() {
     showNotification(`Video call to ${activeChat.name} starting...`, 'info');
 }
 
+// Update User Status
+function updateUserStatus(userId, status) {
+    const user = allUsers.find(u => u.id === userId);
+    if (user) {
+        user.status = status;
+        renderUsersList();
+        updateUserCount();
+        
+        // Update active chat if it's the same user
+        if (activeChat && activeChat.id === userId) {
+            document.getElementById('chatStatus').textContent = status;
+            document.getElementById('chatStatus').className = `status ${status}`;
+        }
+    }
+}
+
+// Show Typing Indicator
+function showTypingIndicator(isTyping) {
+    // Implementation for typing indicator
+    console.log('User is typing:', isTyping);
+}
+
 // Page Navigation
 function showPage(pageId) {
     // Hide all pages
@@ -252,32 +327,52 @@ function showSection(sectionName) {
 }
 
 // Authentication
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
     
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     
-    // Simulate authentication
-    if (email && password) {
-        currentUser = {
-            name: email.split('@')[0],
-            email: email,
-            avatar: `https://picsum.photos/seed/${email}/40/40`
-        };
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email, password })
+        });
         
-        // Update UI
-        document.getElementById('userName').textContent = currentUser.name;
+        const data = await response.json();
         
-        // Show chat app
-        showPage('chatApp');
-        
-        // Show success message
-        showNotification('Login successful! Welcome back.', 'success');
+        if (response.ok) {
+            authToken = data.token;
+            currentUser = data.user;
+            
+            // Save to localStorage
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            // Update UI
+            document.getElementById('userName').textContent = currentUser.username;
+            
+            // Show chat app
+            showPage('chatApp');
+            
+            // Initialize socket and load users
+            initializeSocket();
+            loadRealUsers();
+            
+            showNotification('Login successful! Welcome back.', 'success');
+        } else {
+            showNotification(data.error || 'Login failed', 'error');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showNotification('Login failed. Please try again.', 'error');
     }
 }
 
-function handleSignup(e) {
+async function handleSignup(e) {
     e.preventDefault();
     
     const name = document.getElementById('signupName').value;
@@ -291,27 +386,69 @@ function handleSignup(e) {
         return;
     }
     
-    // Simulate registration
-    if (name && email && password) {
-        currentUser = {
-            name: name,
-            email: email,
-            avatar: `https://picsum.photos/seed/${email}/40/40`
-        };
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                username: name, 
+                email, 
+                password,
+                phone: '',
+                location: ''
+            })
+        });
         
-        // Update UI
-        document.getElementById('userName').textContent = currentUser.name;
+        const data = await response.json();
         
-        // Show chat app
-        showPage('chatApp');
-        
-        // Show success message
-        showNotification('Account created successfully! Welcome to ChatBox.', 'success');
+        if (response.ok) {
+            authToken = data.token;
+            currentUser = data.user;
+            
+            // Save to localStorage
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            // Update UI
+            document.getElementById('userName').textContent = currentUser.username;
+            
+            // Show chat app
+            showPage('chatApp');
+            
+            // Initialize socket and load users
+            initializeSocket();
+            loadRealUsers();
+            
+            showNotification('Account created successfully! Welcome to ChatBox.', 'success');
+        } else {
+            showNotification(data.error || 'Registration failed', 'error');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        showNotification('Registration failed. Please try again.', 'error');
     }
 }
 
 function logout() {
+    // Clear localStorage
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    
+    // Disconnect socket
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+    }
+    
+    // Reset variables
     currentUser = null;
+    authToken = null;
+    activeChat = null;
+    allUsers = [];
+    onlineUsers = [];
+    
     showPage('loginPage');
     showNotification('Logged out successfully.', 'info');
 }
@@ -321,25 +458,20 @@ function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const message = messageInput.value.trim();
     
-    if (message && activeChat) {
+    if (message && activeChat && socket) {
+        // Send via socket
+        socket.emit('privateMessage', {
+            senderId: currentUser.id,
+            receiverId: activeChat.id,
+            content: message,
+            type: 'text'
+        });
+        
+        // Add to UI immediately
         addMessageToChat(message, 'sent');
         messageInput.value = '';
-        
-        // Simulate response
-        setTimeout(() => {
-            const responses = [
-                "That's great! 👍",
-                "I totally agree with you!",
-                "Interesting! Tell me more.",
-                "Sounds good! 😊",
-                "Absolutely! 🎉",
-                "Thanks for sharing!",
-                "How exciting! 🌟",
-                "I love that idea! 💡"
-            ];
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            addMessageToChat(randomResponse, 'received');
-        }, 1000 + Math.random() * 2000);
+    } else if (!socket) {
+        showNotification('Connection lost. Please refresh.', 'error');
     }
 }
 

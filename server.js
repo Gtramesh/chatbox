@@ -5,6 +5,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 require('dotenv').config();
 
@@ -47,6 +49,9 @@ const UserSchema = new mongoose.Schema({
     avatar: { type: String, default: '' },
     status: { type: String, enum: ['online', 'offline', 'away'], default: 'offline' },
     lastSeen: { type: Date, default: Date.now },
+    phone: { type: String, default: '' },
+    location: { type: String, default: '' },
+    joined: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -79,6 +84,9 @@ const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 const Conversation = mongoose.model('Conversation', ConversationSchema);
 const Group = mongoose.model('Group', GroupSchema);
+
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Socket.io connection handling
 const connectedUsers = new Map();
@@ -150,50 +158,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle group messages
-    socket.on('groupMessage', async (data) => {
-        try {
-            const { groupId, senderId, content, type = 'text' } = data;
-            
-            // Verify user is member of group
-            const group = await Group.findById(groupId);
-            if (!group || !group.members.includes(senderId)) {
-                return socket.emit('error', { message: 'Not authorized to send message to this group' });
-            }
-            
-            // Create message (for groups, we'll use a special format)
-            const message = new Message({
-                sender: senderId,
-                receiver: groupId, // Using groupId as receiver for group messages
-                content,
-                type,
-                timestamp: new Date()
-            });
-            
-            await message.save();
-            await message.populate('sender');
-            
-            // Send to all group members
-            group.members.forEach(memberId => {
-                if (memberId.toString() !== senderId.toString()) {
-                    const memberSocketId = connectedUsers.get(memberId.toString());
-                    if (memberSocketId) {
-                        io.to(memberSocketId).emit('newGroupMessage', {
-                            groupId,
-                            message
-                        });
-                    }
-                }
-            });
-            
-            socket.emit('groupMessageSent', message);
-            
-        } catch (error) {
-            console.error('Error sending group message:', error);
-            socket.emit('error', { message: 'Failed to send group message' });
-        }
-    });
-
     // Handle disconnect
     socket.on('disconnect', () => {
         if (socket.userId) {
@@ -243,7 +207,7 @@ async function updateConversation(userId1, userId2, messageId) {
 // Authentication routes
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
+        const { username, email, password, phone, location } = req.body;
         
         // Check if user already exists
         const existingUser = await User.findOne({ 
@@ -256,23 +220,36 @@ app.post('/api/auth/register', async (req, res) => {
             });
         }
         
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
         // Create new user
         const user = new User({
             username,
             email,
-            password, // In production, hash this password
+            password: hashedPassword,
+            phone: phone || '',
+            location: location || '',
             avatar: `https://picsum.photos/seed/${email}/40/40`
         });
         
         await user.save();
         
+        // Generate JWT token
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+        
         res.status(201).json({ 
             message: 'User created successfully',
+            token,
             user: {
                 id: user._id,
                 username: user.username,
                 email: user.email,
-                avatar: user.avatar
+                avatar: user.avatar,
+                status: user.status,
+                phone: user.phone,
+                location: user.location,
+                joined: user.joined
             }
         });
     } catch (error) {
@@ -286,7 +263,13 @@ app.post('/api/auth/login', async (req, res) => {
         
         // Find user
         const user = await User.findOne({ email });
-        if (!user || user.password !== password) { // In production, use proper password comparison
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        // Check password
+        const isValidPassword = await bcrypt.compare(password, user.password);
+        if (!isValidPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
@@ -295,14 +278,21 @@ app.post('/api/auth/login', async (req, res) => {
         user.lastSeen = new Date();
         await user.save();
         
+        // Generate JWT token
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
+        
         res.json({
             message: 'Login successful',
+            token,
             user: {
                 id: user._id,
                 username: user.username,
                 email: user.email,
                 avatar: user.avatar,
-                status: user.status
+                status: user.status,
+                phone: user.phone,
+                location: user.location,
+                joined: user.joined
             }
         });
     } catch (error) {
@@ -310,22 +300,45 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Middleware to verify JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
 // User routes
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', authenticateToken, async (req, res) => {
     try {
-        const users = await User.find({}, 'username email avatar status lastSeen');
+        const users = await User.find({ 
+            _id: { $ne: req.user.userId } // Exclude current user
+        })
+        .select('username email avatar status lastSeen phone location joined')
+        .sort({ joined: -1 }); // Show newest users first
+        
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 });
 
-app.get('/api/users/:userId/conversations', async (req, res) => {
+app.get('/api/users/:userId/conversations', authenticateToken, async (req, res) => {
     try {
         const { userId } = req.params;
         
         const conversations = await Conversation.find({
-            participants: userId
+            participants: { $all: [userId, req.user.userId] }
         })
         .populate('participants', 'username email avatar status')
         .populate('lastMessage')
@@ -338,7 +351,7 @@ app.get('/api/users/:userId/conversations', async (req, res) => {
 });
 
 // Message routes
-app.get('/api/messages/:userId1/:userId2', async (req, res) => {
+app.get('/api/messages/:userId1/:userId2', authenticateToken, async (req, res) => {
     try {
         const { userId1, userId2 } = req.params;
         
@@ -357,10 +370,24 @@ app.get('/api/messages/:userId1/:userId2', async (req, res) => {
     }
 });
 
-// Group routes
-app.get('/api/groups', async (req, res) => {
+// Get current user info
+app.get('/api/user/me', authenticateToken, async (req, res) => {
     try {
-        const groups = await Group.find({})
+        const user = await User.findById(req.user.userId)
+            .select('username email avatar status phone location joined');
+        
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch user info' });
+    }
+});
+
+// Group routes
+app.get('/api/groups', authenticateToken, async (req, res) => {
+    try {
+        const groups = await Group.find({
+            members: req.user.userId
+        })
             .populate('admin', 'username avatar')
             .populate('members', 'username avatar status');
         res.json(groups);
@@ -369,15 +396,15 @@ app.get('/api/groups', async (req, res) => {
     }
 });
 
-app.post('/api/groups', async (req, res) => {
+app.post('/api/groups', authenticateToken, async (req, res) => {
     try {
-        const { name, description, adminId } = req.body;
+        const { name, description } = req.body;
         
         const group = new Group({
             name,
             description,
-            admin: adminId,
-            members: [adminId],
+            admin: req.user.userId,
+            members: [req.user.userId],
             avatar: `https://picsum.photos/seed/${name}/60/60`
         });
         
@@ -406,6 +433,7 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Chat application available at http://localhost:${PORT}`);
+    console.log(`MongoDB connected for data storage`);
 });
 
 module.exports = { app, server, io };
