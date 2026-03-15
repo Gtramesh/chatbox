@@ -87,18 +87,22 @@ function initializeSocket() {
 // Load Real Users from Server
 async function loadRealUsers() {
     try {
-        console.log('Loading real users from server...');
+        console.log('🔄 Loading real users from server...');
+        console.log('📍 Server URL:', window.location.origin);
+        
         const response = await fetch('/api/users', {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
         });
         
-        console.log('Response status:', response.status);
+        console.log('📊 Response status:', response.status);
+        console.log('📊 Response headers:', response.headers);
         
         if (response.ok) {
             const users = await response.json();
-            console.log('Users loaded:', users);
+            console.log('👥 Users loaded from server:', users);
+            console.log('👥 Users count:', users.length);
             
             if (users && users.length > 0) {
                 allUsers = users.map(user => ({
@@ -113,10 +117,12 @@ async function loadRealUsers() {
                 }));
                 
                 onlineUsers = allUsers.filter(user => user.status === 'online');
+                console.log('✅ Real users loaded successfully:', allUsers.length);
                 renderUsersList();
                 updateUserCount();
             } else {
                 // No users in database
+                console.log('📭 No users found in database');
                 allUsers = [];
                 onlineUsers = [];
                 renderUsersList();
@@ -124,7 +130,9 @@ async function loadRealUsers() {
                 showNotification('No users registered yet. Be the first to sign up!', 'info');
             }
         } else {
-            console.error('Failed to load users, status:', response.status);
+            console.error('❌ Failed to load users, status:', response.status);
+            const errorText = await response.text();
+            console.error('❌ Error response:', errorText);
             showNotification('Failed to load users. Please check your connection.', 'error');
             // Show empty state - no fallback to sample users
             allUsers = [];
@@ -133,7 +141,8 @@ async function loadRealUsers() {
             updateUserCount();
         }
     } catch (error) {
-        console.error('Failed to load users:', error);
+        console.error('❌ Failed to load users:', error);
+        console.error('❌ Error details:', error.message);
         showNotification('Failed to load users. Please check your connection.', 'error');
         // Show empty state - no fallback to sample users
         allUsers = [];
@@ -183,6 +192,11 @@ function updateUserCount() {
     const onlineCount = onlineUsers.length;
     const totalCount = allUsers.length;
     document.getElementById('userCount').textContent = `${onlineCount} online • ${totalCount} total`;
+    
+    // Update stats
+    document.getElementById('totalFriends').textContent = totalCount;
+    document.getElementById('totalMessages').textContent = '0'; // Will be updated when messages are loaded
+    document.getElementById('totalGroups').textContent = '0'; // Will be updated when groups are loaded
 }
 
 // Handle User Search
