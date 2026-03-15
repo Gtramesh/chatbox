@@ -720,69 +720,621 @@ body {
     color: var(--text-secondary);
 }
 
-/* Responsive Design */
+/* Mobile-First Responsive Design */
 @media (max-width: 768px) {
+    :root {
+        --primary-color: #667eea;
+        --secondary-color: #764ba2;
+    }
+
+    body {
+        font-size: 16px;
+        overflow-x: hidden;
+    }
+
+    /* Mobile Authentication */
+    .auth-container {
+        padding: 10px;
+        min-height: 100vh;
+    }
+
+    .auth-card {
+        padding: 30px 20px;
+        margin: 10px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .logo-section i {
+        font-size: 2.5rem;
+    }
+
+    .logo-section h1 {
+        font-size: 1.8rem;
+    }
+
+    /* Mobile Chat Layout */
+    .chat-container {
+        flex-direction: column;
+        height: 100vh;
+    }
+
     .sidebar {
-        width: 280px;
+        width: 100%;
+        height: 60vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        position: relative;
     }
-    
+
     .main-content {
-        margin-left: 0;
+        flex: 1;
+        height: 40vh;
+        min-height: 300px;
     }
-    
+
+    /* Mobile Sidebar */
+    .sidebar-header {
+        padding: 15px;
+        position: sticky;
+        top: 0;
+        background: var(--light-color);
+        z-index: 10;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .user-profile {
+        gap: 10px;
+    }
+
+    .user-avatar {
+        width: 35px;
+        height: 35px;
+    }
+
+    .sidebar-nav {
+        display: flex;
+        padding: 10px;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .nav-item {
+        flex: 1;
+        min-width: 80px;
+        padding: 10px 5px;
+        text-align: center;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .nav-item i {
+        font-size: 1.2rem;
+    }
+
+    .nav-item span {
+        font-size: 0.8rem;
+    }
+
+    .badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+
+    /* Mobile Search */
+    .search-container {
+        padding: 10px;
+        position: sticky;
+        top: 80px;
+        background: var(--light-color);
+        z-index: 9;
+    }
+
+    .input-group input {
+        padding: 10px 15px 10px 40px;
+        font-size: 14px;
+    }
+
+    /* Mobile User List */
+    .conversations-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 10px;
+    }
+
+    .section-header {
+        padding: 10px;
+        position: sticky;
+        top: 140px;
+        background: var(--light-color);
+        z-index: 8;
+    }
+
+    .user-item {
+        padding: 10px;
+        margin-bottom: 5px;
+        border-radius: 8px;
+    }
+
+    .user-item .avatar {
+        width: 35px;
+        height: 35px;
+    }
+
+    .user-info h4 {
+        font-size: 0.9rem;
+    }
+
+    .user-info p {
+        font-size: 0.7rem;
+    }
+
+    .user-status {
+        width: 6px;
+        height: 6px;
+    }
+
+    /* Mobile Chat Interface */
+    .chat-header {
+        padding: 10px 15px;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .chat-contact .avatar {
+        width: 35px;
+        height: 35px;
+    }
+
+    .contact-info h3 {
+        font-size: 1rem;
+    }
+
+    .chat-actions {
+        gap: 5px;
+    }
+
+    .btn-icon {
+        padding: 5px;
+        font-size: 0.9rem;
+    }
+
+    /* Mobile Messages */
+    .chat-messages {
+        padding: 10px;
+        min-height: 200px;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    .message {
+        max-width: 90%;
+        margin-bottom: 10px;
+    }
+
+    .message-avatar {
+        width: 25px;
+        height: 25px;
+    }
+
+    .message-content {
+        padding: 8px 12px;
+        border-radius: 12px;
+    }
+
+    .message-content p {
+        font-size: 0.9rem;
+        line-height: 1.3;
+    }
+
+    .message-time {
+        font-size: 0.6rem;
+        margin-top: 3px;
+    }
+
+    /* Mobile Input */
+    .chat-input-container {
+        padding: 10px;
+        position: sticky;
+        bottom: 0;
+        background: white;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .chat-input {
+        flex: 1;
+    }
+
+    .chat-input input {
+        padding: 10px 15px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .btn-send {
+        width: 40px;
+        height: 40px;
+        font-size: 0.9rem;
+    }
+
+    /* Mobile Emoji Picker */
+    .emoji-picker {
+        position: fixed;
+        bottom: 70px;
+        left: 10px;
+        right: 10px;
+        max-width: none;
+        width: auto;
+        border-radius: 10px;
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+    }
+
+    .emoji-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 5px;
+    }
+
+    .emoji-grid .emoji-btn {
+        font-size: 1.2rem;
+        padding: 8px;
+    }
+
+    /* Mobile Modal */
+    .modal-content {
+        width: 95%;
+        max-width: none;
+        margin: 10px;
+        border-radius: 15px;
+        max-height: 90vh;
+    }
+
+    .modal-header {
+        padding: 15px;
+    }
+
+    .modal-body {
+        padding: 15px;
+    }
+
+    .contact-avatar {
+        width: 50px;
+        height: 50px;
+    }
+
+    .detail-item {
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+
+    .detail-item i {
+        width: 18px;
+        font-size: 0.9rem;
+    }
+
+    .detail-item span {
+        font-size: 0.8rem;
+    }
+
+    .contact-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Mobile Home */
+    .home-container {
+        padding: 20px 15px;
+    }
+
+    .welcome-card {
+        padding: 25px 20px;
+        border-radius: 15px;
+    }
+
+    .welcome-card h2 {
+        font-size: 1.5rem;
+    }
+
+    .welcome-card p {
+        font-size: 1rem;
+    }
+
     .quick-actions {
         flex-direction: column;
+        gap: 10px;
     }
-    
+
     .action-card {
-        width: 100%;
+        padding: 15px 20px;
+        border-radius: 10px;
         justify-content: center;
     }
-    
+
+    .action-card i {
+        font-size: 1rem;
+    }
+
     .stats-container {
         grid-template-columns: 1fr;
+        gap: 10px;
     }
-    
-    .message {
-        max-width: 85%;
+
+    .stat-card {
+        padding: 20px;
+        border-radius: 10px;
     }
-    
+
+    .stat-card i {
+        font-size: 1.5rem;
+    }
+
+    .stat-card h3 {
+        font-size: 1.5rem;
+    }
+
+    /* Mobile Groups */
+    .groups-container {
+        padding: 20px 15px;
+    }
+
+    .groups-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .groups-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .btn-primary {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+    }
+
     .groups-grid {
         grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .group-card {
+        padding: 15px;
+        border-radius: 10px;
+    }
+
+    .group-avatar {
+        width: 50px;
+        height: 50px;
+    }
+
+    .group-info h3 {
+        font-size: 1rem;
+    }
+
+    .group-info p {
+        font-size: 0.8rem;
+    }
+
+    /* Mobile Empty State */
+    .empty-state-content {
+        padding: 20px;
+    }
+
+    .empty-state-content i {
+        font-size: 3rem;
+    }
+
+    .empty-state-content h3 {
+        font-size: 1.2rem;
+    }
+
+    .empty-state-content p {
+        font-size: 0.9rem;
+    }
+
+    /* Mobile Notifications */
+    .notification {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        min-width: auto;
+        max-width: none;
+        border-radius: 10px;
+    }
+
+    /* Mobile Touch Optimizations */
+    .btn-primary,
+    .btn-secondary,
+    .btn-icon {
+        min-height: 44px; /* iOS touch target */
+    }
+
+    .user-item,
+    .conversation-item {
+        min-height: 44px; /* iOS touch target */
+    }
+
+    /* Mobile Animations */
+    .animate__animated {
+        --animate-duration: 0.3s;
+    }
+
+    /* Mobile Scrollbar */
+    ::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.3);
+        border-radius: 2px;
     }
 }
 
-@media (max-width: 480px) {
+/* Small Mobile Devices */
+@media (max-width: 380px) {
     .auth-card {
-        padding: 30px 20px;
+        padding: 20px 15px;
     }
-    
-    .sidebar {
-        width: 100%;
-        position: fixed;
-        z-index: 1000;
-        transform: translateX(-100%);
-        transition: var(--transition);
+
+    .logo-section i {
+        font-size: 2rem;
     }
-    
-    .sidebar.open {
-        transform: translateX(0);
-    }
-    
-    .main-content {
-        margin-left: 0;
-    }
-    
-    .chat-container {
-        flex-direction: column;
-    }
-    
-    .welcome-card {
-        padding: 30px 20px;
-    }
-    
-    .welcome-card h2 {
+
+    .logo-section h1 {
         font-size: 1.5rem;
+    }
+
+    .nav-item i {
+        font-size: 1rem;
+    }
+
+    .nav-item span {
+        font-size: 0.7rem;
+    }
+
+    .chat-header {
+        padding: 8px 10px;
+    }
+
+    .chat-messages {
+        padding: 8px;
+    }
+
+    .message-content {
+        padding: 6px 10px;
+    }
+
+    .chat-input-container {
+        padding: 8px;
+    }
+
+    .emoji-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* Landscape Mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .sidebar {
+        height: 50vh;
+    }
+
+    .main-content {
+        height: 50vh;
+    }
+
+    .chat-messages {
+        max-height: 150px;
+    }
+
+    .welcome-card {
+        padding: 20px;
+    }
+
+    .quick-actions {
+        flex-direction: row;
+        gap: 10px;
+    }
+
+    .action-card {
+        flex: 1;
+    }
+}
+
+/* Tablet Devices */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .sidebar {
+        width: 350px;
+    }
+
+    .auth-card {
+        max-width: 450px;
+    }
+
+    .welcome-card {
+        padding: 35px;
+    }
+
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .groups-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* High DPI Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .user-avatar,
+    .message-avatar,
+    .chat-contact .avatar {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+/* Dark Mode for Mobile */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --light-color: #1a202c;
+        --text-primary: #f7fafc;
+        --text-secondary: #cbd5e0;
+        --border-color: #2d3748;
+    }
+
+    .sidebar,
+    .main-content,
+    .auth-card,
+    .message-content,
+    .chat-input,
+    .group-card,
+    .stat-card {
+        background: #2d3748;
+        color: var(--text-primary);
+    }
+
+    .chat-messages {
+        background: #1a202c;
+    }
+}
+
+/* PWA Fullscreen Mode */
+@media all and (display-mode: standalone) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+
+    .chat-header {
+        padding-top: calc(10px + env(safe-area-inset-top));
+    }
+
+    .chat-input-container {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+}
+
+/* iPhone Notch Support */
+@supports (padding: max(0px)) {
+    .chat-header {
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
+    }
+
+    .chat-input-container {
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
     }
 }
 

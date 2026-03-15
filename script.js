@@ -624,5 +624,312 @@ function debounce(func, wait) {
     };
 }
 
-// Search with debounce
-const debouncedSearch = debounce(handleUserSearch, 300);
+// Mobile-specific optimizations
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').then(function(registration) {
+            console.log('ServiceWorker registration successful');
+        }, function(err) {
+            console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+
+// Mobile touch optimizations
+if ('ontouchstart' in window) {
+    document.body.classList.add('touch-device');
+}
+
+// Mobile viewport handling
+function handleMobileViewport() {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        document.body.classList.add('mobile-view');
+        
+        // Adjust chat layout for mobile
+        adjustMobileChatLayout();
+    } else {
+        document.body.classList.remove('mobile-view');
+    }
+}
+
+// Adjust mobile chat layout
+function adjustMobileChatLayout() {
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (sidebar && mainContent) {
+        // Mobile layout: sidebar on top, chat below
+        if (window.innerWidth <= 768) {
+            sidebar.style.height = '60vh';
+            mainContent.style.height = '40vh';
+        }
+    }
+}
+
+// Handle device orientation changes
+window.addEventListener('orientationchange', function() {
+    setTimeout(handleMobileViewport, 100);
+});
+
+// Handle resize events
+window.addEventListener('resize', handleMobileViewport);
+
+// Initialize mobile optimizations
+handleMobileViewport();
+
+// Mobile-specific chat optimizations
+function optimizeChatForMobile() {
+    const messageInput = document.getElementById('messageInput');
+    const chatMessages = document.getElementById('chatMessages');
+    
+    if (messageInput) {
+        // Prevent zoom on iOS
+        messageInput.style.fontSize = '16px';
+        
+        // Handle keyboard show/hide
+        messageInput.addEventListener('focus', function() {
+            setTimeout(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 300);
+        });
+    }
+}
+
+// Initialize mobile chat optimizations
+optimizeChatForMobile();
+
+// Mobile gesture support
+let touchStartX = 0;
+let touchEndX = 0;
+
+function handleSwipeGesture() {
+    const sidebar = document.querySelector('.sidebar');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (touchEndX < touchStartX - 50) {
+        // Swipe left - show chat
+        if (sidebar && mainContent) {
+            sidebar.style.transform = 'translateX(-100%)';
+            mainContent.style.transform = 'translateX(0)';
+        }
+    }
+    
+    if (touchEndX > touchStartX + 50) {
+        // Swipe right - show users
+        if (sidebar && mainContent) {
+            sidebar.style.transform = 'translateX(0)';
+            mainContent.style.transform = 'translateX(100%)';
+        }
+    }
+}
+
+// Add touch event listeners
+document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+});
+
+document.addEventListener('touchend', function(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipeGesture();
+});
+
+// Mobile notification permissions
+function requestNotificationPermission() {
+    if ('Notification' in navigator && 'serviceWorker' in navigator) {
+        Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+                console.log('Notification permission granted');
+            }
+        });
+    }
+}
+
+// Request notification permission on mobile
+requestNotificationPermission();
+
+// Mobile-specific error handling
+window.addEventListener('error', function(e) {
+    if (window.innerWidth <= 768) {
+        console.log('Mobile error:', e.error);
+        // Show user-friendly error message for mobile
+        showNotification('Something went wrong. Please refresh the page.', 'error');
+    }
+});
+
+// Mobile performance monitoring
+function monitorMobilePerformance() {
+    if ('performance' in window) {
+        window.addEventListener('load', function() {
+            const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+            console.log('Mobile load time:', loadTime + 'ms');
+            
+            if (loadTime > 3000) {
+                console.warn('Slow mobile load detected');
+            }
+        });
+    }
+}
+
+// Monitor mobile performance
+monitorMobilePerformance();
+
+// Mobile battery optimization
+if ('getBattery' in navigator) {
+    navigator.getBattery().then(function(battery) {
+        function updateBatteryStatus() {
+            if (battery.level < 0.2) {
+                console.log('Low battery detected, optimizing performance');
+                // Reduce animations and background tasks
+                document.body.classList.add('battery-saver');
+            }
+        }
+        
+        updateBatteryStatus();
+        battery.addEventListener('levelchange', updateBatteryStatus);
+    });
+}
+
+// Mobile network status detection
+function updateNetworkStatus() {
+    const isOnline = navigator.onLine;
+    const statusElement = document.querySelector('.connection-status');
+    
+    if (statusElement) {
+        statusElement.textContent = isOnline ? 'Online' : 'Offline';
+        statusElement.className = isOnline ? 'status online' : 'status offline';
+    }
+    
+    if (!isOnline) {
+        showNotification('You are offline. Some features may not work.', 'warning');
+    }
+}
+
+// Monitor network status
+window.addEventListener('online', updateNetworkStatus);
+window.addEventListener('offline', updateNetworkStatus);
+
+// Initialize network status
+updateNetworkStatus();
+
+// Mobile-specific user agent detection
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// Apply mobile-specific features
+if (isMobileDevice()) {
+    document.body.classList.add('mobile-device');
+    
+    // Add mobile-specific meta tags
+    const metaViewport = document.querySelector('meta[name="viewport"]');
+    if (metaViewport) {
+        metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+    
+    // Add mobile-specific CSS
+    const mobileCSS = document.createElement('style');
+    mobileCSS.textContent = `
+        .mobile-device .chat-messages {
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .mobile-device .btn-primary,
+        .mobile-device .btn-secondary,
+        .mobile-device .btn-icon {
+            min-height: 44px;
+        }
+        
+        .mobile-device .user-item,
+        .mobile-device .conversation-item {
+            min-height: 44px;
+        }
+        
+        .mobile-device .battery-saver * {
+            animation-duration: 0.1s !important;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            z-index: 1000;
+        }
+        
+        .connection-status.online {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .connection-status.offline {
+            background: #f56565;
+            color: white;
+        }
+    `;
+    document.head.appendChild(mobileCSS);
+}
+
+// Mobile app install prompt (PWA)
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show install button for mobile
+    if (isMobileDevice()) {
+        showInstallPrompt();
+    }
+});
+
+function showInstallPrompt() {
+    const installButton = document.createElement('button');
+    installButton.textContent = 'Install ChatBox App';
+    installButton.className = 'btn-install';
+    installButton.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-weight: 600;
+        z-index: 1000;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    `;
+    
+    installButton.addEventListener('click', function() {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function(choiceResult) {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                }
+                deferredPrompt = null;
+            });
+        }
+        installButton.remove();
+    });
+    
+    document.body.appendChild(installButton);
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        if (installButton.parentNode) {
+            installButton.remove();
+        }
+    }, 10000);
+}
+
+// Add connection status element
+const connectionStatus = document.createElement('div');
+connectionStatus.className = 'connection-status';
+connectionStatus.textContent = 'Online';
+document.body.appendChild(connectionStatus);

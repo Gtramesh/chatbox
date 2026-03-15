@@ -2,11 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatBox - Online Chat Application</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ChatBox - Mobile Chat Application</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ChatBox">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="ChatBox">
+    <meta name="msapplication-TileColor" content="#667eea">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="ChatBox - Connect and chat with friends in real-time">
+    <meta name="keywords" content="chat, messaging, social, mobile, pwa">
+    <meta name="author" content="ChatBox Team">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="ChatBox - Mobile Chat Application">
+    <meta property="og:description" content="Connect and chat with friends in real-time">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://picsum.photos/seed/chatbox/1200/630">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ChatBox - Mobile Chat Application">
+    <meta name="twitter:description" content="Connect and chat with friends in real-time">
+    <meta name="twitter:image" content="https://picsum.photos/seed/chatbox/1200/630">
+    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
 </head>
 <body>
     <div id="app">
