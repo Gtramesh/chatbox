@@ -87,26 +87,48 @@ function initializeSocket() {
 // Load Real Users from Server
 async function loadRealUsers() {
     try {
+        console.log('Loading real users from server...');
         const response = await fetch('/api/users', {
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
         });
         
+        console.log('Response status:', response.status);
+        
         if (response.ok) {
             const users = await response.json();
-            allUsers = users.map(user => ({
-                id: user._id,
-                name: user.username,
-                email: user.email,
-                phone: user.phone || 'Not provided',
-                avatar: user.avatar,
-                status: user.status,
-                joined: new Date(user.joined).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-                location: user.location || 'Not provided'
-            }));
+            console.log('Users loaded:', users);
             
-            onlineUsers = allUsers.filter(user => user.status === 'online');
+            if (users && users.length > 0) {
+                allUsers = users.map(user => ({
+                    id: user._id,
+                    name: user.username,
+                    email: user.email,
+                    phone: user.phone || 'Not provided',
+                    avatar: user.avatar,
+                    status: user.status,
+                    joined: new Date(user.joined).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                    location: user.location || 'Not provided'
+                }));
+                
+                onlineUsers = allUsers.filter(user => user.status === 'online');
+                renderUsersList();
+                updateUserCount();
+            } else {
+                // No users in database
+                allUsers = [];
+                onlineUsers = [];
+                renderUsersList();
+                updateUserCount();
+                showNotification('No users registered yet. Be the first to sign up!', 'info');
+            }
+        } else {
+            console.error('Failed to load users, status:', response.status);
+            showNotification('Failed to load users. Please check your connection.', 'error');
+            // Show empty state - no fallback to sample users
+            allUsers = [];
+            onlineUsers = [];
             renderUsersList();
             updateUserCount();
         }
