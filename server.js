@@ -77,12 +77,21 @@ const GroupSchema = new mongoose.Schema({
     avatar: { type: String },
     admin: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
+});
+
+const FriendSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    friendId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model('User', UserSchema);
 const Message = mongoose.model('Message', MessageSchema);
 const Conversation = mongoose.model('Conversation', ConversationSchema);
+const Friend = mongoose.model('Friend', FriendSchema);
 const Group = mongoose.model('Group', GroupSchema);
 
 // JWT Secret
@@ -333,6 +342,83 @@ app.get('/api/users', authenticateToken, async (req, res) => {
     }
 });
 
+// Friends routes
+app.get('/api/friends', authenticateToken, async (req, res) => {
+    try {
+        const friends = await Friend.find({ userId: req.user.userId })
+            .populate('friendId', 'username email avatar status')
+            .sort({ createdAt: -1 });
+        
+        res.json(friends);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch friends' });
+    }
+});
+
+app.post('/api/friends', authenticateToken, async (req, res) => {
+    try {
+        const { friendId } = req.body;
+        
+        // Check if already friends
+        const existingFriend = await Friend.findOne({
+            $or: [
+                { userId: req.user.userId, friendId },
+                { userId: friendId, friendId: req.user.userId }
+            ]
+        });
+        
+        if (existingFriend) {
+            return res.status(400).json({ error: 'Already friends' });
+        }
+        
+        // Create friendship
+        const friend = new Friend({
+            userId: req.user.userId,
+            friendId
+        });
+        
+        await friend.save();
+        res.status(201).json({ message: 'Friend added successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add friend' });
+    }
+});
+
+// Groups routes
+app.get('/api/groups', authenticateToken, async (req, res) => {
+    try {
+        const groups = await Group.find({ 
+            members: req.user.userId 
+        })
+            .populate('creator', 'username email avatar')
+            .populate('members', 'username email avatar status')
+            .sort({ createdAt: -1 });
+        
+        res.json(groups);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch groups' });
+    }
+});
+
+app.post('/api/groups', authenticateToken, async (req, res) => {
+    try {
+        const { name, members } = req.body;
+        
+        // Create group
+        const group = new Group({
+            name,
+            creator: req.user.userId,
+            members: [req.user.userId, ...members] // Include creator in members
+        });
+        
+        await group.save();
+        res.status(201).json({ message: 'Group created successfully', group });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create group' });
+    }
+});
+
+// Conversations routes
 app.get('/api/users/:userId/conversations', authenticateToken, async (req, res) => {
     try {
         const { userId } = req.params;

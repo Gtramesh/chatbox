@@ -1,11 +1,15 @@
 // Global Variables
-let currentUser = null;
-let activeSection = 'home';
+let authToken = localStorage.getItem('authToken');
+let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+let socket = null;
 let activeChat = null;
 let allUsers = [];
 let onlineUsers = [];
-let authToken = null;
-let socket = null;
+let friends = [];
+let groups = [];
+let typingTimeout = null;
+let isTyping = false;
+let selectedUsersForGroup = [];
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', function() {
@@ -53,6 +57,7 @@ function checkExistingSession() {
         showPage('chatApp');
         initializeSocket();
         loadRealUsers(); // Load only real registered users
+        loadFriendsAndGroups(); // Load friends and groups
     }
 }
 
@@ -187,6 +192,305 @@ function renderUsersList(filteredUsers = null) {
     `).join('');
 }
 
+// Load Friends and Groups
+async function loadFriendsAndGroups() {
+    try {
+        console.log('🔄 Loading friends and groups...');
+        
+        // Load friends
+        const friendsResponse = await fetch('/api/friends', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (friendsResponse.ok) {
+            const friendsData = await friendsResponse.json();
+            friends = friendsData;
+            console.log('👥 Friends loaded:', friends.length);
+        }
+        
+        // Load groups
+        const groupsResponse = await fetch('/api/groups', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (groupsResponse.ok) {
+            const groupsData = await groupsResponse.json();
+            groups = groupsData;
+            console.log('👥 Groups loaded:', groups.length);
+        }
+        
+        updateStats();
+    } catch (error) {
+        console.error('❌ Failed to load friends and groups:', error);
+    }
+}
+
+// Add Friend
+async function addFriend(userId) {
+    try {
+        const response = await fetch('/api/friends', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ friendId: userId })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showNotification('Friend added successfully!', 'success');
+            loadFriendsAndGroups(); // Refresh friends list
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to add friend', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error adding friend:', error);
+        showNotification('Failed to add friend', 'error');
+    }
+}
+
+// Create Group
+async function createGroup() {
+    const groupName = prompt('Enter group name:');
+    if (!groupName || groupName.trim() === '') {
+        showNotification('Please enter a group name', 'warning');
+        return;
+    }
+    
+    if (selectedUsersForGroup.length === 0) {
+        showNotification('Please select at least one user for the group', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/groups', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+                name: groupName.trim(),
+                members: selectedUsersForGroup
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            showNotification('Group created successfully!', 'success');
+            loadFriendsAndGroups(); // Refresh groups list
+            closeGroupCreationModal();
+        } else {
+            const error = await response.json();
+            showNotification(error.error || 'Failed to create group', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error creating group:', error);
+        showNotification('Failed to create group', 'error');
+    }
+}
+
+// Toggle User Selection for Group
+function toggleUserSelection(userId) {
+    const index = selectedUsersForGroup.indexOf(userId);
+    if (index > -1) {
+        selectedUsersForGroup.splice(index, 1);
+    } else {
+        selectedUsersForGroup.push(userId);
+    }
+    
+    // Update UI
+    const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+    if (userElement) {
+        userElement.classList.toggle('selected');
+    }
+    
+    // Update selected count
+    const selectedCount = document.getElementById('selectedCount');
+    if (selectedCount) {
+        selectedCount.textContent = selectedUsersForGroup.length;
+    }
+}
+
+// Show Group Creation Modal
+function showGroupCreationModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Group</h3>
+                <button class="close-btn" onclick="closeGroupCreationModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <input type="text" id="groupName" placeholder="Enter group name..." class="form-control">
+                </div>
+                <div class="users-selection">
+                    <h4>Select Users:</h4>
+                    <div class="users-grid" id="usersGrid">
+                        ${allUsers.map(user => `
+                            <div class="user-checkbox" data-user-id="${user.id}" onclick="toggleUserSelection('${user.id}')">
+                                <img src="${user.avatar}" alt="${user.name}" class="avatar-small">
+                                <div class="user-info">
+                                    <h5>${user.name}</h5>
+                                    <span class="status ${user.status}">${user.status}</span>
+                                </div>
+                                <div class="checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="selection-info">
+                        <span id="selectedCount">0</span> users selected
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeGroupCreationModal()">Cancel</button>
+                <button class="btn-primary" onclick="createGroup()">Create Group</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+    
+    // Reset selections
+    selectedUsersForGroup = [];
+}
+
+// Close Group Creation Modal
+function closeGroupCreationModal() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+    selectedUsersForGroup = [];
+}
+
+// Update Stats
+function updateStats() {
+    document.getElementById('totalFriends').textContent = friends.length;
+    document.getElementById('totalGroups').textContent = groups.length;
+}
+
+// Show New Chat Modal
+function showNewChatModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Start New Chat</h3>
+                <button class="close-btn" onclick="closeNewChatModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="users-list">
+                    <h4>Available Users:</h4>
+                    <div class="users-grid" id="newChatUsers">
+                        ${allUsers.map(user => `
+                            <div class="user-card" onclick="startChatWithUser('${user.id}')">
+                                <img src="${user.avatar}" alt="${user.name}" class="avatar-small">
+                                <div class="user-info">
+                                    <h5>${user.name}</h5>
+                                    <span class="status ${user.status}">${user.status}</span>
+                                </div>
+                                <button class="btn-icon">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeNewChatModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+}
+
+// Close New Chat Modal
+function closeNewChatModal() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Start Chat with User
+function startChatWithUser(userId) {
+    const user = allUsers.find(u => u.id === userId);
+    if (user) {
+        selectUser(userId);
+        closeNewChatModal();
+    }
+}
+
+// Show Add Friend Modal
+function showAddFriendModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Friend</h3>
+                <button class="close-btn" onclick="closeAddFriendModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="users-list">
+                    <h4>Online Users:</h4>
+                    <div class="users-grid" id="addFriendUsers">
+                        ${onlineUsers.map(user => `
+                            <div class="user-card" onclick="addFriendFromModal('${user.id}')">
+                                <img src="${user.avatar}" alt="${user.name}" class="avatar-small">
+                                <div class="user-info">
+                                    <h5>${user.name}</h5>
+                                    <span class="status online">Online</span>
+                                </div>
+                                <button class="btn-primary">
+                                    <i class="fas fa-user-plus"></i> Add Friend
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddFriendModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+}
+
+// Close Add Friend Modal
+function closeAddFriendModal() {
+    const modal = document.querySelector('.modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// Add Friend from Modal
+async function addFriendFromModal(userId) {
+    await addFriend(userId);
+    closeAddFriendModal();
+}
+
 // Update User Count
 function updateUserCount() {
     const onlineCount = onlineUsers.length;
@@ -194,9 +498,9 @@ function updateUserCount() {
     document.getElementById('userCount').textContent = `${onlineCount} online • ${totalCount} total`;
     
     // Update stats
-    document.getElementById('totalFriends').textContent = totalCount;
+    document.getElementById('totalFriends').textContent = friends.length;
     document.getElementById('totalMessages').textContent = '0'; // Will be updated when messages are loaded
-    document.getElementById('totalGroups').textContent = '0'; // Will be updated when groups are loaded
+    document.getElementById('totalGroups').textContent = groups.length;
 }
 
 // Handle User Search
@@ -408,6 +712,7 @@ async function handleLogin(e) {
             // Initialize socket and load REAL users only
             initializeSocket();
             await loadRealUsers(); // Only load real registered users
+            await loadFriendsAndGroups(); // Load friends and groups
             
             showNotification('Login successful! Welcome back.', 'success');
         } else {
@@ -467,6 +772,7 @@ async function handleSignup(e) {
             // Initialize socket and load REAL users only
             initializeSocket();
             await loadRealUsers(); // Only load real registered users
+            await loadFriendsAndGroups(); // Load friends and groups
             
             showNotification('Account created successfully! Welcome to ChatBox.', 'success');
         } else {
