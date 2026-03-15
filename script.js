@@ -2,7 +2,8 @@
 let currentUser = null;
 let activeSection = 'home';
 let activeChat = null;
-let conversations = [];
+let allUsers = [];
+let onlineUsers = [];
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', function() {
@@ -21,6 +22,9 @@ function initializeApp() {
         }
     });
     
+    // Setup search functionality
+    document.getElementById('userSearch').addEventListener('input', handleUserSearch);
+    
     // Click outside to close emoji picker
     document.addEventListener('click', function(e) {
         const emojiPicker = document.getElementById('emojiPicker');
@@ -31,8 +35,183 @@ function initializeApp() {
         }
     });
     
-    // Load sample data
-    loadSampleData();
+    // Load sample users
+    loadSampleUsers();
+}
+
+// Load Sample Users
+function loadSampleUsers() {
+    const sampleUsers = [
+        {
+            id: 1,
+            name: 'Alice Johnson',
+            email: 'alice@example.com',
+            phone: '+1234567890',
+            avatar: 'https://picsum.photos/seed/alice/40/40',
+            status: 'online',
+            joined: 'January 2024',
+            location: 'New York, NY'
+        },
+        {
+            id: 2,
+            name: 'Bob Smith',
+            email: 'bob@example.com',
+            phone: '+0987654321',
+            avatar: 'https://picsum.photos/seed/bob/40/40',
+            status: 'online',
+            joined: 'February 2024',
+            location: 'Los Angeles, CA'
+        },
+        {
+            id: 3,
+            name: 'Carol Williams',
+            email: 'carol@example.com',
+            phone: '+1122334455',
+            avatar: 'https://picsum.photos/seed/carol/40/40',
+            status: 'offline',
+            joined: 'March 2024',
+            location: 'Chicago, IL'
+        },
+        {
+            id: 4,
+            name: 'David Brown',
+            email: 'david@example.com',
+            phone: '+5544332211',
+            avatar: 'https://picsum.photos/seed/david/40/40',
+            status: 'online',
+            joined: 'January 2024',
+            location: 'Houston, TX'
+        },
+        {
+            id: 5,
+            name: 'Emma Davis',
+            email: 'emma@example.com',
+            phone: '+9988776655',
+            avatar: 'https://picsum.photos/seed/emma/40/40',
+            status: 'offline',
+            joined: 'April 2024',
+            location: 'Phoenix, AZ'
+        }
+    ];
+    
+    allUsers = sampleUsers;
+    onlineUsers = sampleUsers.filter(user => user.status === 'online');
+    renderUsersList();
+    updateUserCount();
+}
+
+// Render Users List
+function renderUsersList(filteredUsers = null) {
+    const usersList = document.getElementById('usersList');
+    const usersToRender = filteredUsers || allUsers;
+    
+    if (usersToRender.length === 0) {
+        usersList.innerHTML = '<div class="loading-users"><i class="fas fa-search"></i> No users found</div>';
+        return;
+    }
+    
+    usersList.innerHTML = usersToRender.map(user => `
+        <div class="user-item" onclick="selectUser(${user.id})">
+            <img src="${user.avatar}" alt="${user.name}" class="avatar">
+            <div class="user-info">
+                <h4>${user.name}</h4>
+                <p>Click to start chatting</p>
+            </div>
+            <div class="user-status ${user.status}"></div>
+        </div>
+    `).join('');
+}
+
+// Update User Count
+function updateUserCount() {
+    const onlineCount = onlineUsers.length;
+    document.getElementById('userCount').textContent = `${onlineCount} online`;
+}
+
+// Handle User Search
+function handleUserSearch(e) {
+    const query = e.target.value.toLowerCase();
+    const filteredUsers = allUsers.filter(user => 
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+    );
+    renderUsersList(filteredUsers);
+}
+
+// Select User for Chat
+function selectUser(userId) {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
+    
+    activeChat = user;
+    
+    // Update chat header
+    document.getElementById('chatAvatar').src = user.avatar;
+    document.getElementById('chatUserName').textContent = user.name;
+    document.getElementById('chatStatus').textContent = user.status;
+    document.getElementById('chatStatus').className = `status ${user.status}`;
+    
+    // Show active chat, hide empty state
+    document.getElementById('noChatSelected').style.display = 'none';
+    document.getElementById('activeChat').style.display = 'flex';
+    
+    // Clear previous messages
+    document.getElementById('chatMessages').innerHTML = '';
+    
+    // Add welcome message
+    addMessageToChat(`Hi ${user.name}! 👋 This is the beginning of your conversation.`, 'received', user.avatar);
+    
+    // Focus message input
+    document.getElementById('messageInput').focus();
+}
+
+// View Contact Details
+function viewContactDetails() {
+    if (!activeChat) return;
+    
+    // Update modal with user details
+    document.getElementById('modalAvatar').src = activeChat.avatar;
+    document.getElementById('modalUserName').textContent = activeChat.name;
+    document.getElementById('modalStatus').textContent = activeChat.status;
+    document.getElementById('modalStatus').className = `status ${activeChat.status}`;
+    document.getElementById('modalEmail').textContent = activeChat.email;
+    document.getElementById('modalPhone').textContent = activeChat.phone;
+    document.getElementById('modalJoined').textContent = `Joined ${activeChat.joined}`;
+    document.getElementById('modalLocation').textContent = activeChat.location;
+    
+    // Show modal
+    document.getElementById('contactModal').style.display = 'flex';
+}
+
+// Close Contact Modal
+function closeContactModal() {
+    document.getElementById('contactModal').style.display = 'none';
+}
+
+// Start Chat from Modal
+function startChat() {
+    closeContactModal();
+    showSection('chat');
+}
+
+// Add to Contacts
+function addToContacts() {
+    if (!activeChat) return;
+    
+    showNotification(`${activeChat.name} added to your contacts!`, 'success');
+    closeContactModal();
+}
+
+// Start Voice Call
+function startVoiceCall() {
+    if (!activeChat) return;
+    showNotification(`Voice call to ${activeChat.name} starting...`, 'info');
+}
+
+// Start Video Call
+function startVideoCall() {
+    if (!activeChat) return;
+    showNotification(`Video call to ${activeChat.name} starting...`, 'info');
 }
 
 // Page Navigation
@@ -142,7 +321,7 @@ function sendMessage() {
     const messageInput = document.getElementById('messageInput');
     const message = messageInput.value.trim();
     
-    if (message) {
+    if (message && activeChat) {
         addMessageToChat(message, 'sent');
         messageInput.value = '';
         
@@ -153,7 +332,10 @@ function sendMessage() {
                 "I totally agree with you!",
                 "Interesting! Tell me more.",
                 "Sounds good! 😊",
-                "Absolutely! 🎉"
+                "Absolutely! 🎉",
+                "Thanks for sharing!",
+                "How exciting! 🌟",
+                "I love that idea! 💡"
             ];
             const randomResponse = responses[Math.floor(Math.random() * responses.length)];
             addMessageToChat(randomResponse, 'received');
@@ -161,14 +343,14 @@ function sendMessage() {
     }
 }
 
-function addMessageToChat(message, type) {
+function addMessageToChat(message, type, avatar = null) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type} animate__animated animate__fadeInUp`;
     
     if (type === 'received') {
         messageDiv.innerHTML = `
-            <img src="https://picsum.photos/seed/user2/32/32" alt="User" class="message-avatar">
+            <img src="${avatar || activeChat.avatar}" alt="User" class="message-avatar">
             <div class="message-content">
                 <p>${message}</p>
                 <span class="message-time">${getCurrentTime()}</span>
@@ -243,85 +425,6 @@ function getNotificationIcon(type) {
     return icons[type] || 'info-circle';
 }
 
-// Sample Data Loading
-function loadSampleData() {
-    // Sample conversations
-    conversations = [
-        {
-            id: 1,
-            name: 'Sarah Johnson',
-            avatar: 'https://picsum.photos/seed/user2/40/40',
-            lastMessage: 'Hey! How are you doing?',
-            time: '2:30 PM',
-            unread: 2,
-            online: true
-        },
-        {
-            id: 2,
-            name: 'Mike Wilson',
-            avatar: 'https://picsum.photos/seed/user3/40/40',
-            lastMessage: 'See you tomorrow!',
-            time: '1:15 PM',
-            unread: 0,
-            online: false
-        },
-        {
-            id: 3,
-            name: 'Project Team',
-            avatar: 'https://picsum.photos/seed/group1/40/40',
-            lastMessage: 'John: Great work everyone!',
-            time: '12:45 PM',
-            unread: 1,
-            online: true,
-            isGroup: true
-        }
-    ];
-}
-
-// Conversation Management
-function selectConversation(conversationId) {
-    const conversation = conversations.find(c => c.id === conversationId);
-    if (conversation) {
-        activeChat = conversation;
-        
-        // Update UI
-        document.querySelector('.chat-contact h3').textContent = conversation.name;
-        document.querySelector('.chat-contact .avatar').src = conversation.avatar;
-        
-        // Clear unread messages
-        conversation.unread = 0;
-        updateConversationList();
-        
-        // Load chat history (simulated)
-        loadChatHistory(conversationId);
-    }
-}
-
-function loadChatHistory(conversationId) {
-    const chatMessages = document.getElementById('chatMessages');
-    chatMessages.innerHTML = '';
-    
-    // Simulate loading previous messages
-    const sampleMessages = [
-        { text: 'Hey there! 👋', type: 'received', time: '2:00 PM' },
-        { text: 'Hi! How are you?', type: 'sent', time: '2:05 PM' },
-        { text: 'I\'m doing great! Thanks for asking 😊', type: 'received', time: '2:10 PM' },
-        { text: 'What have you been up to?', type: 'sent', time: '2:15 PM' },
-        { text: 'Working on some exciting projects!', type: 'received', time: '2:20 PM' }
-    ];
-    
-    sampleMessages.forEach((msg, index) => {
-        setTimeout(() => {
-            addMessageToChat(msg.text, msg.type);
-        }, index * 100);
-    });
-}
-
-function updateConversationList() {
-    // This would update the conversation list UI
-    // For now, it's handled in the HTML
-}
-
 // Group Functions
 function createGroup() {
     const groupName = prompt('Enter group name:');
@@ -335,57 +438,18 @@ function joinGroup(groupId) {
     showSection('chat');
 }
 
-// Search Functionality
-function searchConversations(query) {
-    const filtered = conversations.filter(conv => 
-        conv.name.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    // Update conversation list with filtered results
-    updateConversationList();
-}
-
-// File Upload (Simulated)
-function handleFileUpload() {
-    showNotification('File upload feature coming soon!', 'info');
-}
-
-// Voice Call (Simulated)
-function startVoiceCall() {
-    showNotification('Voice call feature coming soon!', 'info');
-}
-
-function startVideoCall() {
-    showNotification('Video call feature coming soon!', 'info');
-}
-
-// Typing Indicators
-function showTypingIndicator() {
-    // Show typing indicator in chat
-}
-
-function hideTypingIndicator() {
-    // Hide typing indicator in chat
-}
-
-// Online Status Management
-function updateOnlineStatus(status) {
-    const statusElement = document.querySelector('.status');
-    statusElement.className = `status ${status}`;
-    statusElement.textContent = status === 'online' ? 'Online' : 'Offline';
-}
-
 // Keyboard Shortcuts
 document.addEventListener('keydown', function(e) {
     // Ctrl/Cmd + K for search
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        document.querySelector('.search-container input').focus();
+        document.getElementById('userSearch').focus();
     }
     
-    // Escape to close emoji picker
+    // Escape to close emoji picker or modal
     if (e.key === 'Escape') {
         document.getElementById('emojiPicker').style.display = 'none';
+        closeContactModal();
     }
     
     // Ctrl/Cmd + Enter to send message
@@ -397,7 +461,7 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Theme Toggle (Bonus Feature)
+// Theme Toggle
 function toggleTheme() {
     document.body.classList.toggle('dark-theme');
     const isDark = document.body.classList.contains('dark-theme');
@@ -429,74 +493,4 @@ function debounce(func, wait) {
 }
 
 // Search with debounce
-const debouncedSearch = debounce(searchConversations, 300);
-
-// Add CSS for notifications
-const notificationStyles = `
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-        padding: 15px 20px;
-        z-index: 10000;
-        min-width: 300px;
-        max-width: 400px;
-    }
-    
-    .notification-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    
-    .notification-success {
-        border-left: 4px solid var(--success-color);
-        color: var(--success-color);
-    }
-    
-    .notification-error {
-        border-left: 4px solid var(--danger-color);
-        color: var(--danger-color);
-    }
-    
-    .notification-warning {
-        border-left: 4px solid var(--warning-color);
-        color: var(--warning-color);
-    }
-    
-    .notification-info {
-        border-left: 4px solid var(--primary-color);
-        color: var(--primary-color);
-    }
-    
-    .dark-theme {
-        --light-color: #1a202c;
-        --text-primary: #f7fafc;
-        --text-secondary: #cbd5e0;
-        --border-color: #2d3748;
-        background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-    }
-    
-    .dark-theme .auth-card,
-    .dark-theme .sidebar,
-    .dark-theme .main-content,
-    .dark-theme .message-content,
-    .dark-theme .chat-input,
-    .dark-theme .group-card,
-    .dark-theme .stat-card {
-        background: #2d3748;
-        color: var(--text-primary);
-    }
-    
-    .dark-theme .chat-messages {
-        background: #1a202c;
-    }
-`;
-
-// Add notification styles to head
-const styleSheet = document.createElement('style');
-styleSheet.textContent = notificationStyles;
-document.head.appendChild(styleSheet);
+const debouncedSearch = debounce(handleUserSearch, 300);
