@@ -52,7 +52,7 @@ function checkExistingSession() {
         document.getElementById('userName').textContent = currentUser.username;
         showPage('chatApp');
         initializeSocket();
-        loadRealUsers();
+        loadRealUsers(); // Load only real registered users
     }
 }
 
@@ -112,13 +112,18 @@ async function loadRealUsers() {
         }
     } catch (error) {
         console.error('Failed to load users:', error);
-        showNotification('Failed to load users. Using demo mode.', 'warning');
-        loadDemoUsers();
+        showNotification('Failed to load users. Please check your connection.', 'error');
+        // Show empty state - no fallback to sample users
+        allUsers = [];
+        onlineUsers = [];
+        renderUsersList();
+        updateUserCount();
     }
 }
 
-// Demo Users Fallback
+// Demo Users Fallback - REMOVED - Only real users allowed
 function loadDemoUsers() {
+    // NO MORE SAMPLE USERS - Only registered users from MongoDB
     allUsers = [];
     onlineUsers = [];
     renderUsersList();
@@ -206,15 +211,21 @@ async function loadChatHistory(userId) {
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = '';
             
-            messages.forEach(message => {
-                const isSent = message.sender._id === currentUser.id;
-                addMessageToChat(message.content, isSent ? 'sent' : 'received', message.sender.avatar);
-            });
+            if (messages.length === 0) {
+                // No previous messages - show welcome
+                addMessageToChat(`Hi ${activeChat.name}! 👋 This is the beginning of your conversation.`, 'received', activeChat.avatar);
+            } else {
+                // Load real chat history from MongoDB
+                messages.forEach(message => {
+                    const isSent = message.sender._id === currentUser.id;
+                    addMessageToChat(message.content, isSent ? 'sent' : 'received', message.sender.avatar);
+                });
+            }
         }
     } catch (error) {
         console.error('Failed to load chat history:', error);
-        // Add welcome message
-        addMessageToChat(`Hi ${activeChat.name}! 👋 This is the beginning of your conversation.`, 'received', activeChat.avatar);
+        // Show welcome message if no connection
+        addMessageToChat(`Hi ${activeChat.name}! 👋 Start chatting now!`, 'received', activeChat.avatar);
     }
 }
 
@@ -358,9 +369,9 @@ async function handleLogin(e) {
             // Show chat app
             showPage('chatApp');
             
-            // Initialize socket and load users
+            // Initialize socket and load REAL users only
             initializeSocket();
-            loadRealUsers();
+            await loadRealUsers(); // Only load real registered users
             
             showNotification('Login successful! Welcome back.', 'success');
         } else {
@@ -417,9 +428,9 @@ async function handleSignup(e) {
             // Show chat app
             showPage('chatApp');
             
-            // Initialize socket and load users
+            // Initialize socket and load REAL users only
             initializeSocket();
-            loadRealUsers();
+            await loadRealUsers(); // Only load real registered users
             
             showNotification('Account created successfully! Welcome to ChatBox.', 'success');
         } else {
